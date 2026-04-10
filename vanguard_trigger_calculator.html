@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanguard Trigger Calculator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #2d2424;
+      color: #ddc9b0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #3b2a22;
+      border-radius: 16px;
+      border: 1px solid rgba(198,110,66,0.25);
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      color: #ddc9b0;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #9a7a62;
+      margin-bottom: 1.75rem;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 480px) {
+      .controls-grid { grid-template-columns: 1fr; }
+      .cards-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .section-label {
+      font-size: 13px;
+      color: #9a7a62;
+      margin-bottom: 6px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1.2rem;
+    }
+
+    .slider-row input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: #2d2424;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #c66e42;
+      cursor: pointer;
+      border: 2px solid #3b2a22;
+      box-shadow: 0 0 0 1px #c66e42;
+    }
+
+    .slider-row input[type=range]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #c66e42;
+      cursor: pointer;
+      border: 2px solid #3b2a22;
+    }
+
+    .slider-val {
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 28px;
+      text-align: right;
+      color: #ddc9b0;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .metric {
+      background: #2d2424;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: #9a7a62;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 500;
+      color: #ddc9b0;
+    }
+
+    .metric-value.highlight { color: #c66e42; }
+
+    .dist-section-label {
+      font-size: 13px;
+      color: #9a7a62;
+      margin-bottom: 10px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 0.5px solid rgba(198,110,66,0.2);
+      font-size: 14px;
+    }
+
+    .result-row:last-child { border-bottom: none; }
+
+    .result-label { color: #9a7a62; }
+
+    .bar-bg {
+      background: #2d2424;
+      border-radius: 3px;
+      height: 6px;
+      flex: 1;
+      margin: 0 12px;
+    }
+
+    .bar-fill {
+      height: 6px;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .result-pct { font-weight: 500; min-width: 42px; text-align: right; }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 220px;
+      margin: 1.5rem 0 1rem;
+    }
+
+    hr {
+      border: none;
+      border-top: 0.5px solid rgba(198,110,66,0.2);
+      margin: 1.2rem 0;
+    }
+
+    .note {
+      font-size: 12px;
+      color: #9a7a62;
+    }
+
+    .mode-toggle {
+      display: flex;
+      gap: 0;
+      background: #2d2424;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 1.2rem;
+      width: fit-content;
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      font-size: 13px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #9a7a62;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .mode-btn.active {
+      background: #c66e42;
+      color: #fff;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Vanguard Trigger Calculator</h1>
+    <p class="subtitle">Hypergeometric probability — sampling without replacement</p>
+
+    <div class="controls-grid">
+      <div>
+        <div class="section-label">Deck Size</div>
+        <div class="slider-row">
+          <input type="range" id="deckSize" min="1" max="50" value="31" step="1">
+          <span class="slider-val" id="deckSizeVal">31</span>
+        </div>
+        <div class="section-label">Triggers in Deck</div>
+        <div class="slider-row">
+          <input type="range" id="triggers" min="0" max="16" value="10" step="1">
+          <span class="slider-val" id="triggersVal">10</span>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Drive Checks</div>
+        <div class="slider-row">
+          <input type="range" id="drawn" min="1" max="15" value="3" step="1">
+          <span class="slider-val" id="drawnVal">3</span>
+        </div>
+        <div class="section-label" id="wantedLabel">Target Triggers</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="modeExact" onclick="setMode('exact')">Exact</button>
+          <button class="mode-btn" id="modeMin" onclick="setMode('min')">Minimum</button>
+        </div>
+        <div class="slider-row">
+          <input type="range" id="wanted" min="0" max="15" value="2" step="1">
+          <span class="slider-val" id="wantedVal">2</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="metric">
+        <div class="metric-label" id="primaryLabel">Exactly X Triggers</div>
+        <div class="metric-value highlight" id="exactPct">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label" id="secondaryLabel">At Least X Triggers</div>
+        <div class="metric-value" id="atLeastPct">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Trigger Ratio</div>
+        <div class="metric-value" id="ratio">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Expected Amount of Triggers Checked</div>
+        <div class="metric-value" id="expected">—</div>
+      </div>
+    </div>
+
+    <div class="dist-section-label">Full distribution — triggers in <span id="drawnLabel">3</span> cards checked</div>
+    <div id="distRows"></div>
+
+    <div class="chart-wrap">
+      <canvas id="trigChart" role="img" aria-label="Bar chart showing probability distribution of trigger counts"></canvas>
+    </div>
+
+    <hr>
+    <p class="note">Works offline. Built with hypergeometric distribution math + Chart.js.</p>
+  </div>
+
+  <script>
+    function comb(n, k) {
+      if (k < 0 || k > n) return 0;
+      if (k === 0 || k === n) return 1;
+      k = Math.min(k, n - k);
+      let c = 1;
+      for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1);
+      return c;
+    }
+
+    function hypergeom(N, K, n, k) {
+      return comb(K, k) * comb(N - K, n - k) / comb(N, n);
+    }
+
+    let mode = 'exact';
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('modeExact').classList.toggle('active', m === 'exact');
+      document.getElementById('modeMin').classList.toggle('active', m === 'min');
+      document.getElementById('wantedLabel').textContent = 'Target Triggers';
+      document.getElementById('primaryLabel').textContent = m === 'exact' ? 'Exactly X Triggers' : 'At Least X Triggers';
+      document.getElementById('secondaryLabel').textContent = m === 'exact' ? 'At Least X Triggers' : 'Exactly X Triggers';
+      update();
+    }
+
+    ['deckSize','triggers','drawn','wanted'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        document.getElementById(id + 'Val').textContent = document.getElementById(id).value;
+        update();
+      });
+    });
+
+    let chart;
+
+    function update() {
+      let N = +document.getElementById('deckSize').value;
+      let K = +document.getElementById('triggers').value;
+      let n = +document.getElementById('drawn').value;
+      let k = +document.getElementById('wanted').value;
+
+      K = Math.min(K, N);
+      n = Math.min(n, N);
+      k = Math.min(k, Math.min(K, n));
+
+      document.getElementById('triggersVal').textContent = K;
+      document.getElementById('drawnVal').textContent = n;
+      document.getElementById('wantedVal').textContent = k;
+      document.getElementById('drawnLabel').textContent = n;
+
+      const exactP = hypergeom(N, K, n, k);
+      let atLeastP = 0;
+      const maxK = Math.min(K, n);
+      for (let i = k; i <= maxK; i++) atLeastP += hypergeom(N, K, n, i);
+
+      const expected = n * K / N;
+
+      if (mode === 'exact') {
+        document.getElementById('exactPct').textContent = (exactP * 100).toFixed(1) + '%';
+        document.getElementById('atLeastPct').textContent = (atLeastP * 100).toFixed(1) + '%';
+      } else {
+        document.getElementById('exactPct').textContent = (atLeastP * 100).toFixed(1) + '%';
+        document.getElementById('atLeastPct').textContent = (exactP * 100).toFixed(1) + '%';
+      }
+
+      document.getElementById('ratio').textContent = K + ' / ' + N;
+      document.getElementById('expected').textContent = expected.toFixed(2);
+
+      const labels = [];
+      const data = [];
+      for (let i = 0; i <= maxK; i++) {
+        labels.push(i + (i === 1 ? ' trigger' : ' triggers'));
+        data.push(+(hypergeom(N, K, n, i) * 100).toFixed(2));
+      }
+
+      const rowsHtml = data.map((p, i) => {
+        const isSelected = mode === 'exact' ? i === k : i >= k;
+        const barWidth = Math.max(2, Math.round(p));
+        return `<div class="result-row" style="${isSelected ? 'font-weight:500;' : ''}">
+          <span class="result-label" style="${isSelected ? 'color:#ddc9b0;' : ''}">${labels[i]}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%; background:${isSelected ? '#c66e42' : '#5c3d2e'};"></div></div>
+          <span class="result-pct" style="${isSelected ? 'color:#c66e42;' : 'color:#9a7a62;'}">${p.toFixed(1)}%</span>
+        </div>`;
+      }).join('');
+      document.getElementById('distRows').innerHTML = rowsHtml;
+
+      const bgColors = data.map((_, i) => (mode === 'exact' ? i === k : i >= k) ? '#c66e42' : '#5c3d2e');
+
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].backgroundColor = bgColors;
+        chart.update();
+      } else {
+        chart = new Chart(document.getElementById('trigChart'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Probability (%)',
+              data,
+              backgroundColor: bgColors,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { callback: v => v + '%', font: { size: 12 }, color: '#9a7a62' },
+                grid: { color: 'rgba(198,110,66,0.1)' }
+              },
+              x: {
+                ticks: { font: { size: 11 }, autoSkip: false, color: '#9a7a62' },
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    update();
+  </script>
+</body>
+</html>
